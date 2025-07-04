@@ -4,153 +4,171 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Alert,
-  Platform,
   StyleSheet,
+  Alert,
 } from 'react-native';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { globalStyles } from '../styles/globalStyles';
+import { pick, keepLocalCopy } from '@react-native-documents/picker';
+import { viewDocument } from '@react-native-documents/viewer';
+
+type StoredFile = {
+  name: string;
+  localUri: string;
+  type?: string;
+};
+
+type FileSelectorProps = {
+  hasPermission: boolean;
+  onRequestPermission: () => Promise<void>;
+};
 
 const FileSelector = ({
   hasPermission,
   onRequestPermission,
-}: {
-  hasPermission: boolean;
-  onRequestPermission: () => void;
-}) => {
-  const [selectedFile, setSelectedFile] = useState<any>(null);
+}: FileSelectorProps) => {
+  const [files, setFiles] = useState<StoredFile[]>([]);
 
-  const selectFile = async (source: 'gallery' | 'camera') => {
-    if (!hasPermission) {
-      Alert.alert(
-        'Permission Required',
-        'Please grant storage permission first.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Grant Permission', onPress: onRequestPermission },
-        ],
-      );
-      return;
-    }
-
+  const handlePickFiles = async () => {
     try {
-      const options = {
-        mediaType: 'mixed' as const,
-        quality: 1,
-        includeBase64: false,
-      };
+      const rawPicked = await pick({ allowMultiSelection: true });
 
-      const result =
-        source === 'gallery'
-          ? await launchImageLibrary(options)
-          : await launchCamera(options);
+      if (!rawPicked.length) return;
 
-      if (result.didCancel) {
-        console.log('User cancelled file picker');
-      } else if (result.errorCode) {
-        console.error('Error:', result.errorMessage);
-        Alert.alert('Error', result.errorMessage || 'Failed to select file');
-      } else if (result.assets && result.assets[0]) {
-        const asset = result.assets[0];
-        setSelectedFile({
-          uri: asset.uri,
-          name: asset.fileName || 'file',
-          type: asset.type || 'application/octet-stream',
-          size: asset.fileSize || 0,
-        });
-      }
-    } catch (error) {
-      console.error('Error selecting file:', error);
-      Alert.alert('Error', 'Failed to select file');
+      // Convert name: string | null → string
+      const pickedFiles = rawPicked.map(file => ({
+        name: file.name ?? 'unnamed',
+        uri: file.uri,
+        type: file.type,
+      }));
+
+      const [first, ...rest] = pickedFiles;
+
+      const copyResults = await keepLocalCopy({
+        files: [
+          {
+            uri: first.uri,
+            fileName: first.name,
+          },
+          ...rest.map(file => ({
+            uri: file.uri,
+            fileName: file.name,
+          })),
+        ],
+        destination: 'documentDirectory',
+      });
+
+      const stored = copyResults
+        .map((result, index) => {
+          if (result.status !== 'success') return null;
+          return {
+            name: pickedFiles[index].name,
+            localUri: result.localUri,
+            type: pickedFiles[index].type,
+          };
+        })
+        .filter(Boolean) as StoredFile[];
+
+      setFiles(stored);
+    } catch (err) {
+      Alert.alert('Error', 'File selection or copy failed.');
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const handlePreview = async (uri: string, mimeType?: string) => {
+    try {
+      await viewDocument({ uri, mimeType });
+    } catch (err) {
+      Alert.alert('Preview Error', 'Could not preview this document.');
+    }
   };
+
+  const handleDiscardAll = () => setFiles([]);
 
   return (
-    <ScrollView style={globalStyles.moduleContainer}>
-      <Text style={globalStyles.moduleTitle}>File Selector</Text>
-
-      {!hasPermission ? (
-        <View style={globalStyles.permissionWarning}>
-          <Text style={globalStyles.warningText}>
-            Storage permission required
-          </Text>
-          <Text style={{ color: '#616161', marginBottom: 15 }}>
-            You need to grant storage permission to select files.
-          </Text>
+    <View style={styles.container}>
+      {files.length ? (
+        <>
+          <Text style={styles.label}>Uploaded Files:</Text>
+          <ScrollView style={styles.fileList}>
+            {files.map((file, index) => (
+              <View key={index} style={styles.fileItem}>
+                <Text style={styles.fileName}>{file.name}</Text>
+                <TouchableOpacity
+                  style={styles.previewButton}
+                  onPress={() => handlePreview(file.localUri, file.type)}
+                >
+                  <Text style={styles.previewText}>Preview</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
           <TouchableOpacity
-            style={globalStyles.button}
-            onPress={onRequestPermission}
+            style={[styles.button, styles.discardButton]}
+            onPress={handleDiscardAll}
           >
-            <Text style={globalStyles.buttonText}>Grant Permission</Text>
+            <Text style={styles.buttonText}>Discard All</Text>
           </TouchableOpacity>
-        </View>
+        </>
       ) : (
-        <View>
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity
-              style={[styles.selectButton, { backgroundColor: '#6200ee' }]}
-              onPress={() => selectFile('gallery')}
-            >
-              <Text style={styles.selectButtonText}>📁 Open Gallery</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.selectButton,
-                { backgroundColor: '#03dac6', marginTop: 10 },
-              ]}
-              onPress={() => selectFile('camera')}
-            >
-              <Text style={styles.selectButtonText}>📷 Take Photo/Video</Text>
-            </TouchableOpacity>
-          </View>
-
-          {selectedFile && (
-            <View style={globalStyles.fileInfo}>
-              <Text style={globalStyles.fileText}>Selected File:</Text>
-              <Text style={{ color: '#616161' }}>
-                Name: {selectedFile.name}
-              </Text>
-              <Text style={{ color: '#616161' }}>
-                Type: {selectedFile.type}
-              </Text>
-              <Text style={{ color: '#616161' }}>
-                Size: {formatFileSize(selectedFile.size)}
-              </Text>
-
-              <TouchableOpacity
-                style={[globalStyles.button, { marginTop: 15 }]}
-              >
-                <Text style={globalStyles.buttonText}>Upload File</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        <TouchableOpacity style={styles.button} onPress={handlePickFiles}>
+          <Text style={styles.buttonText}>Upload Documents</Text>
+        </TouchableOpacity>
       )}
-    </ScrollView>
+    </View>
   );
 };
 
+export default FileSelector;
+
 const styles = StyleSheet.create({
-  buttonGroup: {
-    marginBottom: 20,
+  container: {
+    padding: 20,
+    flex: 1,
   },
-  selectButton: {
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
-  },
-  selectButtonText: {
-    color: 'white',
+  label: {
     fontWeight: 'bold',
+    marginBottom: 10,
     fontSize: 16,
   },
+  fileList: {
+    maxHeight: 300,
+    marginBottom: 20,
+  },
+  fileItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 6,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  fileName: {
+    flex: 1,
+    marginRight: 10,
+    color: '#111827',
+  },
+  previewButton: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  previewText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  button: {
+    backgroundColor: '#2563eb',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  discardButton: {
+    backgroundColor: '#dc2626',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
 });
-
-export default FileSelector;

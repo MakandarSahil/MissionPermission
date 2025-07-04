@@ -17,7 +17,15 @@ import {
 import FileViewer from 'react-native-file-viewer';
 import RNFS from 'react-native-fs';
 
-const CameraCapture = () => {
+type CameraCaptureProps = {
+  hasPermission: boolean;
+  onRequestPermission: () => Promise<void>;
+};
+
+const CameraCapture: React.FC<CameraCaptureProps> = ({
+  hasPermission,
+  onRequestPermission,
+}) => {
   const [media, setMedia] = useState<{
     uri: string;
     type: 'photo' | 'video';
