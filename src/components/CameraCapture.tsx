@@ -3,43 +3,36 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
-  Alert,
   Image,
   StyleSheet,
+  Alert,
+  ScrollView,
 } from 'react-native';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import { globalStyles } from '../styles/globalStyles';
+import {
+  launchCamera,
+  launchImageLibrary,
+  Asset,
+  CameraOptions,
+} from 'react-native-image-picker';
+import FileViewer from 'react-native-file-viewer';
+import RNFS from 'react-native-fs';
 
-const CameraCapture = ({
-  hasPermission,
-  onRequestPermission,
-}: {
-  hasPermission: boolean;
-  onRequestPermission: () => void;
-}) => {
+const CameraCapture = () => {
   const [media, setMedia] = useState<{
     uri: string;
     type: 'photo' | 'video';
   } | null>(null);
 
-  const handleCapture = async (source: 'camera' | 'library') => {
-    if (!hasPermission) {
-      Alert.alert(
-        'Permission Required',
-        'Please grant camera and storage permissions first.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Grant Permission', onPress: onRequestPermission },
-        ],
-      );
-      return;
-    }
-
+  const handleMedia = async (
+    source: 'camera' | 'gallery',
+    mediaType: 'photo' | 'video',
+  ) => {
     try {
-      const options = {
-        mediaType: 'mixed' as const,
+      const options: CameraOptions = {
+        mediaType,
         quality: 1,
+        videoQuality: 'high',
+        durationLimit: 60,
         saveToPhotos: true,
       };
 
@@ -51,98 +44,88 @@ const CameraCapture = ({
       if (result.didCancel) {
         console.log('User cancelled');
       } else if (result.errorCode) {
-        console.error('Error:', result.errorMessage);
-        Alert.alert('Error', result.errorMessage || 'Failed to capture media');
-      } else if (result.assets && result.assets[0]) {
-        const asset = result.assets[0];
+        Alert.alert('Error', result.errorMessage || 'Operation failed');
+      } else if (result.assets && result.assets.length > 0) {
+        const asset: Asset = result.assets[0];
         setMedia({
           uri: asset.uri || '',
           type: asset.type?.startsWith('video') ? 'video' : 'photo',
         });
       }
-    } catch (error) {
-      console.error('Error capturing media:', error);
-      Alert.alert('Error', 'Failed to capture media');
+    } catch (err) {
+      console.error('Error:', err);
+      Alert.alert('Error', 'Something went wrong');
+    }
+  };
+
+  const openInNativeApp = async (uri: string) => {
+    try {
+      const exists = await RNFS.exists(uri);
+      if (!exists) {
+        Alert.alert('File not found', 'The media file is not available.');
+        return;
+      }
+
+      await FileViewer.open(uri, { showOpenWithDialog: true });
+    } catch (err) {
+      console.log('Viewer error:', err);
+      Alert.alert('Error', 'No compatible app found to open this media.');
     }
   };
 
   return (
-    <ScrollView style={globalStyles.moduleContainer}>
-      <Text style={globalStyles.moduleTitle}>Media Capture</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.heading}>🎬 Capture or Select Media</Text>
 
-      {!hasPermission ? (
-        <View style={globalStyles.permissionWarning}>
-          <Text style={globalStyles.warningText}>
-            Camera & Storage permissions required
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => handleMedia('camera', 'photo')}
+      >
+        <Text style={styles.buttonText}>📷 Take Photo</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => handleMedia('camera', 'video')}
+      >
+        <Text style={styles.buttonText}>🎥 Record Video</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => handleMedia('gallery', 'photo')}
+      >
+        <Text style={styles.buttonText}>🖼️ Pick Photo from Gallery</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => handleMedia('gallery', 'video')}
+      >
+        <Text style={styles.buttonText}>📁 Pick Video from Gallery</Text>
+      </TouchableOpacity>
+
+      {media && (
+        <View style={styles.previewSection}>
+          <Text style={styles.previewLabel}>
+            {media.type === 'photo'
+              ? '📸 Photo Selected:'
+              : '🎥 Video Selected:'}
           </Text>
-          <Text style={{ color: '#616161', marginBottom: 15 }}>
-            You need to grant camera and storage permissions to capture
-            photos/videos.
-          </Text>
-          <TouchableOpacity
-            style={globalStyles.button}
-            onPress={onRequestPermission}
-          >
-            <Text style={globalStyles.buttonText}>Grant Permissions</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View>
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity
-              style={[styles.captureButton, { backgroundColor: '#6200ee' }]}
-              onPress={() => handleCapture('camera')}
+
+          {media.type === 'photo' ? (
+            <Image
+              source={{ uri: media.uri }}
+              style={styles.image}
+              resizeMode="contain"
+            />
+          ) : (
+            <Text
+              style={styles.linkText}
+              onPress={() => openInNativeApp(media.uri)}
             >
-              <Text style={styles.captureButtonText}>📷 Take Photo/Video</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.captureButton,
-                { backgroundColor: '#03dac6', marginTop: 10 },
-              ]}
-              onPress={() => handleCapture('library')}
-            >
-              <Text style={styles.captureButtonText}>
-                🖼️ Choose from Gallery
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {media && (
-            <View style={globalStyles.fileInfo}>
-              <Text style={globalStyles.fileText}>
-                {media.type === 'photo' ? '📸 Photo' : '🎥 Video'} selected:
-              </Text>
-
-              {media.type === 'photo' ? (
-                <View style={globalStyles.previewContainer}>
-                  <Image
-                    source={{ uri: media.uri }}
-                    style={globalStyles.previewImage}
-                    resizeMode="contain"
-                  />
-                </View>
-              ) : (
-                <Text
-                  style={{
-                    color: '#616161',
-                    fontFamily: 'monospace',
-                    marginTop: 10,
-                  }}
-                >
-                  {media.uri}
-                </Text>
-              )}
-
-              <TouchableOpacity
-                style={[globalStyles.button, { marginTop: 15 }]}
-              >
-                <Text style={globalStyles.buttonText}>
-                  Upload {media.type === 'photo' ? 'Photo' : 'Video'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+              {media.uri.split('/').pop() || 'Open in Native Player'}
+            </Text>
           )}
         </View>
       )}
@@ -151,18 +134,46 @@ const CameraCapture = ({
 };
 
 const styles = StyleSheet.create({
-  buttonGroup: {
-    marginBottom: 20,
+  container: {
+    padding: 16,
+    backgroundColor: '#fff',
   },
-  captureButton: {
+  heading: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 24,
+    textAlign: 'center',
+    color: '#333',
+  },
+  button: {
+    backgroundColor: '#6200ee',
+    padding: 14,
     borderRadius: 8,
-    padding: 15,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  previewSection: {
+    marginTop: 20,
     alignItems: 'center',
   },
-  captureButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+  previewLabel: {
     fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  image: {
+    width: '100%',
+    height: 250,
+    borderRadius: 10,
+  },
+  linkText: {
+    color: '#1e88e5',
+    fontSize: 16,
+    textDecorationLine: 'underline',
   },
 });
 
