@@ -1,6 +1,10 @@
 import { StyleSheet } from 'react-native';
 
 export const globalStyles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff', // or your theme background
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',

@@ -6,14 +6,17 @@ const TabBar = ({
   activeTab,
   setActiveTab,
 }: {
-  activeTab: 'permissions' | 'audio' | 'camera' | 'files';
-  setActiveTab: (tab: 'permissions' | 'audio' | 'camera' | 'files') => void;
+  activeTab: 'permissions' | 'audio' | 'camera' | 'files' | 'location';
+  setActiveTab: (
+    tab: 'permissions' | 'audio' | 'camera' | 'files' | 'location',
+  ) => void;
 }) => {
   const tabs = [
     { key: 'permissions', icon: '🔐', label: 'Permissions' },
     { key: 'audio', icon: '🎤', label: 'Audio' },
     { key: 'camera', icon: '📷', label: 'Media' },
     { key: 'files', icon: '📁', label: 'Files' },
+    { key: 'location', icon: '📍', label: 'Location' }, // ✅ Location tab added
   ];
 
   return (

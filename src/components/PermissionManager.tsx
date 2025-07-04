@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { globalStyles } from '../styles/globalStyles';
 
+
+
 const PermissionManager = ({
   permissionStatus,
   onPermissionUpdate,
@@ -21,11 +23,13 @@ const PermissionManager = ({
     microphone: boolean;
     storage: boolean;
     camera: boolean;
+    location: boolean;
   };
   onPermissionUpdate: (status: {
     microphone: boolean;
     storage: boolean;
     camera: boolean;
+    location: boolean;
   }) => void;
   isLoading: boolean;
   onRefresh: () => void;
@@ -52,6 +56,18 @@ const PermissionManager = ({
           title: 'Camera Permission',
           message:
             'This app needs access to your camera to capture photos and videos.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+
+      const locationGranted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Location Permission',
+          message:
+            'This app needs access to your location to provide location-based features.',
           buttonNeutral: 'Ask Me Later',
           buttonNegative: 'Cancel',
           buttonPositive: 'OK',
@@ -93,12 +109,16 @@ const PermissionManager = ({
         microphone: microphoneGranted === PermissionsAndroid.RESULTS.GRANTED,
         storage: storageGranted,
         camera: cameraGranted === PermissionsAndroid.RESULTS.GRANTED,
+        location: locationGranted === PermissionsAndroid.RESULTS.GRANTED,
       };
 
       onPermissionUpdate(finalStatus);
 
       const allGranted =
-        finalStatus.microphone && finalStatus.storage && finalStatus.camera;
+        finalStatus.microphone &&
+        finalStatus.storage &&
+        finalStatus.camera &&
+        finalStatus.location;
 
       if (allGranted) {
         Alert.alert('Success!', 'All permissions granted successfully!');
@@ -107,6 +127,7 @@ const PermissionManager = ({
         if (!finalStatus.microphone) deniedPermissions.push('Microphone');
         if (!finalStatus.storage) deniedPermissions.push('File Storage');
         if (!finalStatus.camera) deniedPermissions.push('Camera');
+        if (!finalStatus.location) deniedPermissions.push('Location');
 
         Alert.alert(
           'Permissions Required',
@@ -160,7 +181,8 @@ const PermissionManager = ({
   const allPermissionsGranted =
     permissionStatus.microphone &&
     permissionStatus.storage &&
-    permissionStatus.camera;
+    permissionStatus.camera &&
+    permissionStatus.location;
 
   return (
     <ScrollView style={globalStyles.moduleContainer}>
@@ -184,6 +206,10 @@ const PermissionManager = ({
           <PermissionStatusItem
             label="Camera Access"
             granted={permissionStatus.camera}
+          />
+          <PermissionStatusItem
+            label="Location Access"
+            granted={permissionStatus.location}
           />
 
           {allPermissionsGranted && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { pick, keepLocalCopy } from '@react-native-documents/picker';
 import { viewDocument } from '@react-native-documents/viewer';
+
+import Geolocation from '@react-native-community/geolocation';
 
 type StoredFile = {
   name: string;
@@ -27,6 +29,9 @@ const FileSelector = ({
 }: FileSelectorProps) => {
   const [files, setFiles] = useState<StoredFile[]>([]);
 
+  useEffect(() => {
+    Geolocation.getCurrentPosition(info => console.log(info));
+  }, []);
   const handlePickFiles = async () => {
     try {
       const rawPicked = await pick({ allowMultiSelection: true });

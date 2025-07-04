@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+  Platform,
+  PermissionsAndroid,
+} from 'react-native';
+
 import PermissionManager from './src/components/PermissionManager';
 import AudioRecorder from './src/components/AudioRecorder';
 import CameraCapture from './src/components/CameraCapture';
 import FileSelector from './src/components/FileSelector';
+import LiveLocationTracker from './src/components/LiveLocationTracker';
 import TabBar from './src/components/TabBar';
 import { globalStyles } from './src/styles/globalStyles';
-import { Platform, PermissionsAndroid } from 'react-native';
 
 interface PermissionStatus {
   microphone: boolean;
   storage: boolean;
   camera: boolean;
+  location: boolean;
 }
 
 const App = () => {
@@ -19,10 +28,13 @@ const App = () => {
     microphone: false,
     storage: false,
     camera: false,
+    location: false,
   });
+
   const [isLoading, setIsLoading] = useState(true);
+
   const [activeTab, setActiveTab] = useState<
-    'permissions' | 'audio' | 'camera' | 'files'
+    'permissions' | 'audio' | 'camera' | 'files' | 'location'
   >('permissions');
 
   const checkPermissions = async () => {
@@ -35,6 +47,9 @@ const App = () => {
         );
         const cameraPermission = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.CAMERA,
+        );
+        const locationPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         );
 
         const apiLevel = Platform.Version as number;
@@ -68,15 +83,18 @@ const App = () => {
           microphone: microphonePermission,
           storage: storagePermission,
           camera: cameraPermission,
+          location: locationPermission,
         });
       } catch (err) {
         console.warn('Error checking permissions:', err);
       }
     } else {
+      // iOS — assuming permissions are granted
       setPermissionStatus({
         microphone: true,
         storage: true,
         camera: true,
+        location: true,
       });
     }
 
@@ -119,13 +137,20 @@ const App = () => {
             onRequestPermission={checkPermissions}
           />
         );
+      case 'location':
+        return (
+          <LiveLocationTracker
+            hasPermission={permissionStatus.location}
+            onRequestPermission={checkPermissions}
+          />
+        );
       default:
         return null;
     }
   };
 
   return (
-    <SafeAreaView style={globalStyles.container}>
+    <SafeAreaView style={globalStyles.safeArea}>
       <View style={globalStyles.header}>
         <Text style={globalStyles.title}>File Upload App</Text>
       </View>
