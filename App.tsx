@@ -4,6 +4,7 @@ import PermissionManager from './src/components/PermissionManager';
 import AudioRecorder from './src/components/AudioRecorder';
 import CameraCapture from './src/components/CameraCapture';
 import FileSelector from './src/components/FileSelector';
+import DocumentSelect from './src/components/DocumentSelect';
 import TabBar from './src/components/TabBar';
 import { globalStyles } from './src/styles/globalStyles';
 import { Platform, PermissionsAndroid } from 'react-native';
@@ -114,10 +115,11 @@ const App = () => {
         );
       case 'files':
         return (
-          <FileSelector
-            hasPermission={permissionStatus.storage}
-            onRequestPermission={checkPermissions}
-          />
+          // <FileSelector
+          //   hasPermission={permissionStatus.storage}
+          //   onRequestPermission={checkPermissions}
+          // />
+          <DocumentSelect />
         );
       default:
         return null;
